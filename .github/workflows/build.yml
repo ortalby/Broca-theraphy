@@ -23,6 +23,13 @@ jobs:
       - name: Create project structure
         run: python3 setup_project.py
 
+      - name: Download gradle wrapper jar
+        run: |
+          mkdir -p gradle/wrapper
+          curl -sL "https://github.com/gradle/gradle/raw/refs/tags/v8.4.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          ls -lh gradle/wrapper/gradle-wrapper.jar
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
 
