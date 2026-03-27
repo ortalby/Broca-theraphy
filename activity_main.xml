@@ -1,0 +1,56 @@
+package com.aphasia.broca.util
+
+import android.content.Context
+import com.aphasia.broca.data.ALL_WORDS
+import com.aphasia.broca.data.Word
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
+class StatsStore(context: Context) {
+
+    private val prefs = context.getSharedPreferences("broca_stats", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    private val type = object : TypeToken<Map<String, WordStat>>() {}.type
+
+    private var cache: MutableMap<String, WordStat> = loadAll()
+
+    private fun loadAll(): MutableMap<String, WordStat> {
+        val json = prefs.getString("stats_v2", null) ?: return mutableMapOf()
+        return try { gson.fromJson(json, type) } catch (e: Exception) { mutableMapOf() }
+    }
+
+    fun get(wordId: String): WordStat = cache[wordId] ?: WordStat()
+
+    fun set(wordId: String, stat: WordStat) {
+        cache[wordId] = stat
+        save()
+    }
+
+    private fun save() {
+        prefs.edit().putString("stats_v2", gson.toJson(cache)).apply()
+    }
+
+    fun pickNext(): Word {
+        val now = System.currentTimeMillis()
+        val due = ALL_WORDS.filter { w -> val s = cache[w.id]; s == null || s.nextMs <= now }
+        val pool = if (due.isNotEmpty()) due else ALL_WORDS
+        val weighted = pool.map { w ->
+            val s = cache[w.id]
+            val wt = if (s == null || s.att == 0) 2.0 else (1.0 + (1.0 - s.suc.toDouble() / s.att)).coerceAtLeast(0.3)
+            Pair(w, wt)
+        }
+        val total = weighted.sumOf { it.second }
+        var r = Math.random() * total
+        for ((w, wt) in weighted) { r -= wt; if (r <= 0) return w }
+        return pool.first()
+    }
+
+    fun allStats(): Map<String, WordStat> = cache.toMap()
+
+    fun totalAtt() = cache.values.sumOf { it.att }
+    fun totalSuc() = cache.values.sumOf { it.suc }
+    fun dueCount(): Int {
+        val now = System.currentTimeMillis()
+        return ALL_WORDS.count { w -> val s = cache[w.id]; s == null || s.nextMs <= now }
+    }
+}

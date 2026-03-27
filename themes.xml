@@ -1,0 +1,72 @@
+package com.aphasia.broca.ui
+
+import android.graphics.Color
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.core.view.children
+import androidx.fragment.app.Fragment
+import com.aphasia.broca.MainActivity
+import com.aphasia.broca.data.ALL_WORDS
+import com.aphasia.broca.databinding.FragmentStatsBinding
+import com.aphasia.broca.util.StatsStore
+
+class StatsFragment : Fragment() {
+
+    private var _b: FragmentStatsBinding? = null
+    private val b get() = _b!!
+    private val store get() = (requireActivity() as MainActivity).stats
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?) =
+        FragmentStatsBinding.inflate(inflater, container, false).also { _b = it }.root
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        render()
+    }
+
+    private fun render() {
+        val totAtt = store.totalAtt()
+        val totSuc = store.totalSuc()
+        val overall = if (totAtt > 0) totSuc * 100 / totAtt else 0
+        b.tvOverall.text  = "$overall%"
+        b.tvTotSuc.text   = "$totSuc"
+        b.tvDueCount.text = "${store.dueCount()}"
+
+        b.wordListContainer.removeAllViews()
+        val now = System.currentTimeMillis()
+        val rows = ALL_WORDS.map { w ->
+            val s = store.get(w.id)
+            val pct = if (s.att > 0) s.suc * 100 / s.att else -1
+            val due = s.att == 0 || s.nextMs <= now
+            Triple(w, pct, due)
+        }.sortedBy { it.second }
+
+        rows.forEach { (w, pct, due) ->
+            val row = layoutInflater.inflate(com.aphasia.broca.R.layout.item_word_stat, b.wordListContainer, false)
+            row.findViewById<TextView>(com.aphasia.broca.R.id.tvStatEmoji).text = w.emoji
+            row.findViewById<TextView>(com.aphasia.broca.R.id.tvStatWord).text  = w.word
+            val tvBadge = row.findViewById<TextView>(com.aphasia.broca.R.id.tvStatBadge)
+            val bar     = row.findViewById<View>(com.aphasia.broca.R.id.viewBar)
+            val tvPct   = row.findViewById<TextView>(com.aphasia.broca.R.id.tvStatPct)
+            if (pct < 0) {
+                tvBadge.text = "חדש"; tvBadge.visibility = View.VISIBLE
+                bar.visibility = View.GONE; tvPct.visibility = View.GONE
+            } else {
+                tvBadge.visibility = if (due) View.VISIBLE else View.GONE
+                tvBadge.text = "היום"
+                bar.visibility = View.VISIBLE; tvPct.visibility = View.VISIBLE
+                tvPct.text = "$pct%"
+                val barColor = when { pct >= 70 -> Color.parseColor("#4ade80"); pct >= 40 -> Color.parseColor("#facc15"); else -> Color.parseColor("#f87171") }
+                bar.setBackgroundColor(barColor)
+                val lp = bar.layoutParams; lp.width = (pct * 3).coerceAtMost(300)
+                bar.layoutParams = lp
+            }
+            b.wordListContainer.addView(row)
+        }
+    }
+
+    override fun onDestroyView() { super.onDestroyView(); _b = null }
+}

@@ -1,0 +1,38 @@
+package com.aphasia.broca.util
+
+import android.content.Context
+import android.speech.tts.TextToSpeech
+import android.util.Log
+import java.util.Locale
+
+class TtsManager(context: Context) : TextToSpeech.OnInitListener {
+
+    private val tts = TextToSpeech(context.applicationContext, this)
+    private var ready = false
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts.setLanguage(Locale("he", "IL"))
+            ready = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
+            if (!ready) {
+                // fallback: use default language but still speak
+                tts.language = Locale.getDefault()
+                ready = true
+            }
+            Log.d("TTS", "init ok, he-IL supported=$ready")
+        }
+    }
+
+    fun speak(text: String, rate: Float = 0.82f, pitch: Float = 1.0f) {
+        if (!ready) return
+        tts.setSpeechRate(rate)
+        tts.setPitch(pitch)
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "utt_${System.currentTimeMillis()}")
+    }
+
+    fun speakMelodic(text: String) = speak(text, rate = 0.48f, pitch = 1.7f)
+
+    fun stop() { if (ready) tts.stop() }
+
+    fun shutdown() { tts.shutdown() }
+}

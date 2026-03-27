@@ -1,0 +1,64 @@
+package com.aphasia.broca
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import com.aphasia.broca.databinding.ActivityMainBinding
+import com.aphasia.broca.ui.AacFragment
+import com.aphasia.broca.ui.PracticeFragment
+import com.aphasia.broca.ui.StatsFragment
+import com.aphasia.broca.util.StatsStore
+import com.aphasia.broca.util.TtsManager
+
+class MainActivity : AppCompatActivity() {
+
+    lateinit var tts: TtsManager
+    lateinit var stats: StatsStore
+    private lateinit var binding: ActivityMainBinding
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        tts   = TtsManager(this)
+        stats = StatsStore(this)
+
+        requestMicPermission()
+
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_practice -> showFragment(PracticeFragment())
+                R.id.nav_aac      -> showFragment(AacFragment())
+                R.id.nav_stats    -> showFragment(StatsFragment())
+            }
+            true
+        }
+
+        if (savedInstanceState == null) {
+            binding.bottomNav.selectedItemId = R.id.nav_practice
+        }
+    }
+
+    private fun showFragment(fragment: Fragment) {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .commit()
+    }
+
+    private fun requestMicPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        tts.shutdown()
+    }
+}

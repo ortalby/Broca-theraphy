@@ -1,0 +1,53 @@
+package com.aphasia.broca.util
+
+object SpeechEval {
+
+    data class Result(val ok: Boolean, val feedback: String, val quality: String)
+
+    fun evaluate(spokenAlts: List<String>, target: String): Result {
+        val t = normalizeHebrew(target)
+        for (raw in spokenAlts) {
+            val s = normalizeHebrew(raw)
+            val dist = levenshtein(s, t)
+            val quality = when {
+                s == t                              -> "exact"
+                dist <= 1                           -> "close"
+                s.isNotEmpty() && s[0] == t[0] && dist <= (t.length / 2 + 1) -> "partial"
+                commonLetterRatio(s, t) >= 0.6f    -> "partial"
+                else                               -> "unclear"
+            }
+            if (quality != "unclear") {
+                val ok = quality in listOf("exact", "close", "partial")
+                val fb = when (quality) {
+                    "exact"   -> "מעולה! בדיוק נכון! 🌟"
+                    "close"   -> "כמעט מושלם! 🌟"
+                    "partial" -> "יפה מאוד! ✨"
+                    else      -> "ננסי שוב 💙"
+                }
+                return Result(ok, fb, quality)
+            }
+        }
+        return Result(false, "ננסי שוב 💙", "unclear")
+    }
+
+    private fun normalizeHebrew(text: String) =
+        text.trim().replace(Regex("[^א-ת ]"), "").trim()
+
+    private fun levenshtein(a: String, b: String): Int {
+        val dp = Array(a.length + 1) { IntArray(b.length + 1) }
+        for (i in 0..a.length) dp[i][0] = i
+        for (j in 0..b.length) dp[0][j] = j
+        for (i in 1..a.length) for (j in 1..b.length) {
+            dp[i][j] = if (a[i - 1] == b[j - 1]) dp[i - 1][j - 1]
+                       else 1 + minOf(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+        }
+        return dp[a.length][b.length]
+    }
+
+    private fun commonLetterRatio(a: String, b: String): Float {
+        if (b.isEmpty()) return 0f
+        val bList = b.toMutableList()
+        val common = a.count { c -> bList.remove(c) }
+        return common.toFloat() / b.length
+    }
+}

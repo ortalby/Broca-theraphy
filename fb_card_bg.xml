@@ -1,0 +1,9 @@
+package com.aphasia.broca.data
+
+data class Word(
+    val id: String,
+    val word: String,
+    val emoji: String,
+    val category: String,
+    val hint: String
+)
